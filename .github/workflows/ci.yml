@@ -1,0 +1,25 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: erlef/setup-beam@0f75c29430f34bb5af4cce5e3b7f6a8860fca236 # v1
+        with:
+          otp-version: '29'
+          gleam-version: '1.18.1'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: gleam deps download
+      - run: gleam format --check src test
+      - run: gleam build --warnings-as-errors
+      - run: gleam test
+      - run: gleam build --target javascript --warnings-as-errors
+      - run: gleam test --target javascript
+      - run: gleam docs build
