@@ -59,9 +59,11 @@ fn response(answer: String) -> jevelin.HttpResponse {
   )
 }
 
-const choice_answer = "{\"type\":\"choice\",\"choice\":\"review\",\"confidence\":0.78,\"probabilities\":{\"build\":0.15,\"review\":0.85}}"
+const choice_answer =
+  "{\"type\":\"choice\",\"choice\":\"review\",\"confidence\":0.78,\"probabilities\":{\"build\":0.15,\"review\":0.85}}"
 
-const score_answer = "{\"type\":\"score\",\"score\":0.75,\"confidence\":0.8,\"legend\":{\"0\":\"Unrelated\",\"1\":\"Useful\"},\"probabilities\":{\"0\":0.25,\"1\":0.75}}"
+const score_answer =
+  "{\"type\":\"score\",\"score\":0.75,\"confidence\":0.8,\"legend\":{\"0\":\"Unrelated\",\"1\":\"Useful\"},\"probabilities\":{\"0\":0.25,\"1\":0.75}}"
 
 pub fn mixed_batch_decodes_to_domain_record_test() {
   let questions =
@@ -432,4 +434,54 @@ fn assert_oversized_rejected(q: question.Question(a), template: String) -> Nil {
       as "oversized integer rejected without float conversion"
     Nil
   })
+}
+
+pub fn choice_accepts_rounding_error_scaled_by_label_count_test() {
+  let labels =
+    list.repeat(Nil, 43)
+    |> list.index_map(fn(_, i) { "l" <> int.to_string(i) })
+  let assert Ok(q) =
+    question.choice(
+      Text("Which?"),
+      list.map(labels, fn(label) { question.Alternative(label, label, None) }),
+    )
+    as "forty-three alternatives"
+  let distribution = fn(each: Float) {
+    labels
+    |> list.map(fn(label) { "\"" <> label <> "\":" <> float_text(each) })
+    |> string.join(",")
+  }
+  let answer = fn(each: Float) {
+    "{\"type\":\"choice\",\"choice\":\"l0\",\"confidence\":0.5,\"probabilities\":{"
+    <> distribution(each)
+    <> "}}"
+  }
+
+  // 43 values of 0.023 total 0.989, and the allowance is 0.43.
+  let assert Ok(_) =
+    jevelin.decode_response(prepared(q), response(answer(0.023)))
+    as "rounding error of a large choice accepted"
+
+  // 43 values of 0.01 total 0.43, which is 0.57 from one and no rounding.
+  let assert Error(jevelin.InvalidResponse(_)) =
+    jevelin.decode_response(prepared(q), response(answer(0.01)))
+    as "a distribution far from one rejected"
+}
+
+pub fn three_rounded_thirds_are_accepted_test() {
+  let assert Ok(q) =
+    question.choice(Text("Which?"), [
+      question.Alternative("a", 1, None),
+      question.Alternative("b", 2, None),
+      question.Alternative("c", 3, None),
+    ])
+    as "three alternatives"
+  let answer =
+    "{\"type\":\"choice\",\"choice\":\"a\",\"confidence\":0.0,\"probabilities\":{\"a\":0.33,\"b\":0.33,\"c\":0.33}}"
+  let assert Ok(_) = jevelin.decode_response(prepared(q), response(answer))
+    as "three values of 0.33 accepted"
+}
+
+fn float_text(value: Float) -> String {
+  json.float(value) |> json.to_string
 }

@@ -66,7 +66,9 @@ All probabilities and confidence values must be in [0, 1], and scores must fall
 within the requested rubric. Negative or missing token counts are rejected.
 Extra metadata fields are ignored; extra or missing answers are errors.
 
-Probability mass is accepted within an absolute tolerance of 0.001 around one.
+Probability mass is accepted within 0.01 per requested label around one, so
+three values of 0.33 are a valid answer and a 43-label response may carry
+rounding error from each value.
 That tolerance is Jevelin policy, not a precision guarantee from TypeSafe;
 OpenAPI says the probabilities sum to approximately one. The library does not
 recompute confidence, rewrite a selected choice, or round a fractional score.
