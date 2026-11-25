@@ -285,9 +285,19 @@ fn distribution(labels: List(String)) -> Decoder(Dict(String, Probability)) {
     fn(values) {
       let total =
         dict.fold(values, 0.0, fn(sum, _key, p) { sum +. probability.value(p) })
-      same_keys(values, labels) && float.absolute_value(total -. 1.0) <=. 0.001
+      same_keys(values, labels)
+      && float.absolute_value(total -. 1.0) <=. mass_tolerance(labels)
     },
   )
+}
+
+/// The most a distribution's total may differ from one. The service rounds
+/// each probability, so a response with many labels can miss one by a rounding
+/// step per label; three values of 0.33 are a real answer. The allowance is
+/// 0.01 per label, the policy of the Go client, and it never rejects a
+/// distribution that differs from one only by rounding.
+fn mass_tolerance(labels: List(String)) -> Float {
+  0.01 *. int.to_float(list.length(labels))
 }
 
 fn same_keys(values: Dict(String, a), labels: List(String)) -> Bool {
